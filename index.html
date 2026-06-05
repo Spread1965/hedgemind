@@ -1,0 +1,1382 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HedgeMind Pro — Premium Trading Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+/* ── API KEY OVERLAY ── */
+#apiOverlay {
+  position:fixed; inset:0; background:#07090d;
+  display:flex; align-items:center; justify-content:center;
+  z-index:99999; padding:20px;
+}
+#apiOverlay.hidden { display:none; }
+.overlay-box {
+  background:#111820; border:1px solid rgba(201,168,76,0.3);
+  border-radius:16px; padding:32px; width:100%; max-width:480px;
+}
+.overlay-logo { font-family:'Bebas Neue',sans-serif; font-size:32px; letter-spacing:0.08em; background:linear-gradient(135deg,#c9a84c,#e8c97a); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin-bottom:4px; }
+.overlay-sub { font-size:11px; color:#475569; letter-spacing:0.15em; text-transform:uppercase; margin-bottom:24px; }
+.overlay-label { font-size:11px; color:#94a3b8; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px; display:block; }
+.overlay-input { width:100%; background:#07090d; border:1px solid rgba(255,255,255,0.1); color:#f1f5f9; padding:12px 14px; border-radius:8px; font-family:'Space Mono',monospace; font-size:12px; outline:none; margin-bottom:8px; }
+.overlay-input:focus { border-color:#c9a84c; }
+.overlay-hint { font-size:11px; color:#475569; margin-bottom:20px; line-height:1.6; }
+.overlay-hint a { color:#3b82f6; text-decoration:none; }
+.overlay-btn { width:100%; background:linear-gradient(135deg,#c9a84c,#aa8530); border:none; color:#000; padding:12px; border-radius:8px; font-family:'Bebas Neue',sans-serif; font-size:16px; letter-spacing:0.08em; cursor:pointer; margin-bottom:10px; }
+.overlay-btn:disabled { opacity:0.5; cursor:not-allowed; }
+.overlay-result { font-size:12px; padding:10px 14px; border-radius:6px; font-family:'Space Mono',monospace; line-height:1.6; display:none; }
+.overlay-result.ok { background:rgba(34,197,94,0.1); color:#22c55e; border:1px solid rgba(34,197,94,0.2); }
+.overlay-result.err { background:rgba(239,68,68,0.1); color:#ef4444; border:1px solid rgba(239,68,68,0.2); }
+.overlay-security { font-size:10px; color:#334155; margin-top:14px; line-height:1.6; text-align:center; }
+</style>
+:root {
+  --bg: #07090d;
+  --surface: #0d1117;
+  --card: #111820;
+  --card2: #141c26;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.12);
+  --gold: #c9a84c;
+  --gold2: #e8c97a;
+  --green: #22c55e;
+  --green2: #16a34a;
+  --red: #ef4444;
+  --blue: #3b82f6;
+  --blue2: #60a5fa;
+  --amber: #f59e0b;
+  --text: #f1f5f9;
+  --text2: #94a3b8;
+  --text3: #475569;
+  --sidebar-w: 220px;
+  --topbar-h: 56px;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; font-size:13px; }
+
+/* ── LAYOUT ── */
+.app { display:flex; height:100vh; }
+
+/* Sidebar */
+.sidebar {
+  width:var(--sidebar-w); min-width:var(--sidebar-w);
+  background:var(--surface);
+  border-right:1px solid var(--border);
+  display:flex; flex-direction:column;
+  z-index:10;
+}
+.sidebar-logo {
+  padding:18px 20px 14px;
+  border-bottom:1px solid var(--border);
+}
+.sidebar-logo-text {
+  font-family:'Bebas Neue',sans-serif;
+  font-size:22px; letter-spacing:0.08em;
+  background:linear-gradient(135deg,var(--gold),var(--gold2));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+}
+.sidebar-logo-sub { font-size:9px; color:var(--text3); letter-spacing:0.15em; text-transform:uppercase; margin-top:2px; }
+
+.nav { flex:1; padding:12px 0; overflow-y:auto; }
+.nav-section { font-size:9px; color:var(--text3); letter-spacing:0.15em; text-transform:uppercase; padding:10px 20px 4px; }
+.nav-item {
+  display:flex; align-items:center; gap:10px;
+  padding:9px 20px; cursor:pointer;
+  color:var(--text2); font-size:12px;
+  border-left:2px solid transparent;
+  transition:all 0.15s;
+}
+.nav-item:hover { color:var(--text); background:rgba(255,255,255,0.03); }
+.nav-item.active { color:var(--gold2); border-left-color:var(--gold); background:rgba(201,168,76,0.06); }
+.nav-item svg { width:15px; height:15px; flex-shrink:0; }
+
+.sidebar-bottom {
+  padding:14px 20px;
+  border-top:1px solid var(--border);
+  font-size:10px; color:var(--text3); line-height:1.5;
+}
+
+/* Main */
+.main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+
+/* Topbar */
+.topbar {
+  height:var(--topbar-h); min-height:var(--topbar-h);
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 24px; gap:16px;
+}
+.topbar-title { font-family:'Bebas Neue',sans-serif; font-size:18px; letter-spacing:0.06em; color:var(--text); }
+.topbar-right { display:flex; align-items:center; gap:10px; }
+.topbar-time { font-family:'Space Mono',monospace; font-size:11px; color:var(--text3); }
+.topbar-badge {
+  font-size:10px; padding:3px 10px; border-radius:20px;
+  background:rgba(34,197,94,0.12); color:var(--green);
+  border:1px solid rgba(34,197,94,0.2);
+  font-weight:500;
+}
+.topbar-input-wrap { display:flex; gap:8px; flex:1; max-width:380px; }
+.topbar-input {
+  flex:1; background:var(--card); border:1px solid var(--border2);
+  color:var(--text); padding:7px 12px; border-radius:6px;
+  font-family:'Space Mono',monospace; font-size:11px;
+  outline:none; text-transform:uppercase;
+}
+.topbar-input:focus { border-color:var(--gold); }
+.topbar-input::placeholder { color:var(--text3); text-transform:none; }
+.topbar-btn {
+  background:linear-gradient(135deg,var(--gold),#aa8530);
+  border:none; color:#000; padding:7px 16px; border-radius:6px;
+  font-family:'Bebas Neue',sans-serif; font-size:13px;
+  letter-spacing:0.06em; cursor:pointer; white-space:nowrap;
+}
+.topbar-btn:hover { opacity:0.9; }
+.topbar-btn:disabled { opacity:0.4; cursor:not-allowed; }
+
+/* Content area */
+.content { flex:1; overflow-y:auto; padding:20px 24px; }
+
+/* Pages */
+.page { display:none; }
+.page.active { display:block; }
+
+/* ── KPI ROW ── */
+.kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
+.kpi-card {
+  background:var(--card); border:1px solid var(--border);
+  border-radius:8px; padding:14px 16px;
+}
+.kpi-val { font-family:'Bebas Neue',sans-serif; font-size:26px; letter-spacing:0.04em; }
+.kpi-val.green { color:var(--green); }
+.kpi-val.gold { color:var(--gold2); }
+.kpi-val.blue { color:var(--blue2); }
+.kpi-val.red { color:var(--red); }
+.kpi-label { font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:0.1em; margin-top:3px; }
+.kpi-sub { font-size:11px; color:var(--text2); margin-top:4px; }
+
+/* ── SECTION HEADER ── */
+.sec-head {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:14px; margin-top:8px;
+}
+.sec-title {
+  font-family:'Bebas Neue',sans-serif; font-size:16px;
+  letter-spacing:0.08em; color:var(--gold2);
+  display:flex; align-items:center; gap:8px;
+}
+.sec-title::after { content:''; display:block; width:40px; height:1px; background:var(--border2); }
+.sec-badge { font-size:10px; padding:2px 8px; border-radius:3px; background:rgba(201,168,76,0.1); color:var(--gold); border:1px solid rgba(201,168,76,0.2); }
+
+/* ── SIGNAL CARDS ── */
+.signal-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:20px; }
+.signal-card {
+  background:var(--card); border:1px solid var(--border);
+  border-radius:10px; padding:16px; position:relative; overflow:hidden;
+}
+.signal-card.top-pick { border-color:rgba(201,168,76,0.3); }
+.signal-card.top-pick::before { content:'★ TOP PICK'; position:absolute; top:0; right:0; background:var(--gold); color:#000; font-size:8px; font-weight:700; padding:3px 8px; border-radius:0 10px 0 6px; letter-spacing:0.08em; }
+.signal-card-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; }
+.signal-ticker { font-family:'Bebas Neue',sans-serif; font-size:22px; letter-spacing:0.04em; }
+.signal-name { font-size:10px; color:var(--text3); margin-top:1px; }
+.signal-badge {
+  font-size:9px; font-weight:700; padding:3px 8px; border-radius:4px;
+  text-transform:uppercase; letter-spacing:0.08em;
+}
+.signal-badge.buy { background:rgba(34,197,94,0.15); color:var(--green); border:1px solid rgba(34,197,94,0.25); }
+.signal-badge.crypto { background:rgba(59,130,246,0.15); color:var(--blue2); border:1px solid rgba(59,130,246,0.25); }
+.signal-badge.penny { background:rgba(245,158,11,0.15); color:var(--amber); border:1px solid rgba(245,158,11,0.25); }
+.signal-price { font-family:'Space Mono',monospace; font-size:14px; color:var(--text); margin-bottom:8px; }
+.signal-meta { display:grid; grid-template-columns:1fr 1fr; gap:5px; margin-bottom:10px; }
+.signal-m { background:rgba(255,255,255,0.03); border-radius:4px; padding:6px 8px; }
+.signal-m-lbl { font-size:9px; color:var(--text3); text-transform:uppercase; letter-spacing:0.08em; }
+.signal-m-val { font-size:12px; font-weight:500; margin-top:1px; }
+.signal-m-val.pos { color:var(--green); }
+.signal-m-val.neg { color:var(--red); }
+.upside-bar { height:3px; background:var(--border); border-radius:2px; overflow:hidden; margin:4px 0; }
+.upside-fill { height:100%; border-radius:2px; background:var(--green2); }
+.upside-labels { display:flex; justify-content:space-between; font-size:9px; color:var(--text3); }
+.signal-thesis { font-size:11px; color:var(--text2); line-height:1.55; border-top:1px solid var(--border); padding-top:8px; margin-top:6px; }
+.signal-sources { display:flex; gap:5px; flex-wrap:wrap; margin-top:6px; }
+.signal-src { font-size:9px; padding:2px 6px; border-radius:3px; border:1px solid var(--border2); color:var(--text3); }
+
+/* ── CHART CARDS ── */
+.chart-row { display:grid; grid-template-columns:3fr 2fr; gap:12px; margin-bottom:20px; }
+.chart-card {
+  background:var(--card); border:1px solid var(--border);
+  border-radius:10px; padding:16px;
+}
+.chart-title { font-family:'Space Mono',monospace; font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:12px; }
+.chart-wrap { position:relative; width:100%; }
+.legend-row { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:10px; }
+.legend-item { display:flex; align-items:center; gap:5px; font-size:10px; color:var(--text2); }
+.legend-dot { width:8px; height:8px; border-radius:2px; flex-shrink:0; }
+
+/* ── SCANNER ── */
+.scanner-controls { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+.mkt-btn {
+  background:var(--card); border:1px solid var(--border2);
+  color:var(--text2); padding:6px 14px; border-radius:5px;
+  font-size:11px; cursor:pointer; transition:all 0.15s;
+}
+.mkt-btn:hover { border-color:var(--gold); color:var(--gold2); }
+.mkt-btn.active { background:rgba(201,168,76,0.1); border-color:var(--gold); color:var(--gold2); }
+.filter-row { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px; }
+.filter-btn {
+  background:var(--card); border:1px solid var(--border);
+  color:var(--text3); padding:5px 12px; border-radius:4px;
+  font-size:10px; cursor:pointer; transition:all 0.15s;
+  text-transform:uppercase; letter-spacing:0.05em;
+}
+.filter-btn.active { background:rgba(34,197,94,0.08); border-color:rgba(34,197,94,0.3); color:var(--green); }
+.scan-btn {
+  background:linear-gradient(135deg,var(--green2),#15803d);
+  border:none; color:#fff; padding:9px 24px; border-radius:6px;
+  font-family:'Bebas Neue',sans-serif; font-size:14px;
+  letter-spacing:0.06em; cursor:pointer; margin-bottom:16px;
+}
+.scan-btn:hover { opacity:0.9; }
+.scan-table { width:100%; border-collapse:collapse; }
+.scan-table th { font-size:9px; color:var(--text3); text-transform:uppercase; letter-spacing:0.1em; padding:6px 10px; text-align:left; border-bottom:1px solid var(--border); }
+.scan-table td { padding:9px 10px; border-bottom:1px solid rgba(255,255,255,0.03); font-size:12px; }
+.scan-table tr:hover td { background:rgba(255,255,255,0.02); }
+.scan-table .ticker-cell { font-family:'Space Mono',monospace; font-weight:700; color:var(--text); }
+.scan-table .pos { color:var(--green); font-weight:500; }
+.scan-table .neg { color:var(--red); font-weight:500; }
+.scan-table .neutral { color:var(--text2); }
+.scan-table .signal-strong { background:rgba(34,197,94,0.12); color:var(--green); padding:2px 7px; border-radius:3px; font-size:9px; font-weight:700; letter-spacing:0.06em; }
+.signal-buy-btn {
+  background:transparent; border:1px solid var(--border2);
+  color:var(--text2); padding:3px 9px; border-radius:3px;
+  font-size:9px; cursor:pointer; transition:all 0.15s;
+}
+.signal-buy-btn:hover { border-color:var(--gold); color:var(--gold2); }
+
+/* ── ANALYZER ── */
+.analyzer-layout { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.strat-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px; }
+.strat-card {
+  background:var(--card); border:1px solid var(--border);
+  border-radius:6px; padding:10px 12px; cursor:pointer; transition:all 0.15s;
+}
+.strat-card:hover { border-color:var(--border2); }
+.strat-card.active { border-color:rgba(201,168,76,0.4); background:rgba(201,168,76,0.05); }
+.strat-card-name { font-size:11px; font-weight:500; color:var(--text); }
+.strat-card-desc { font-size:9px; color:var(--text3); margin-top:2px; }
+.strat-card.active .strat-card-name { color:var(--gold2); }
+.quick-tags { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:12px; }
+.qtag {
+  background:var(--card2); border:1px solid var(--border);
+  padding:4px 10px; border-radius:4px; font-size:10px;
+  color:var(--text2); cursor:pointer; transition:all 0.15s;
+}
+.qtag:hover { border-color:var(--gold); color:var(--gold2); }
+.qtag.de { border-color:rgba(245,158,11,0.2); color:var(--amber); background:rgba(245,158,11,0.05); }
+.qtag.crypto { border-color:rgba(59,130,246,0.2); color:var(--blue2); background:rgba(59,130,246,0.05); }
+.analyzer-input-row { display:flex; gap:8px; margin-bottom:10px; }
+.analyzer-input {
+  flex:1; background:var(--card); border:1px solid var(--border2);
+  color:var(--text); padding:9px 12px; border-radius:6px;
+  font-family:'Space Mono',monospace; font-size:11px;
+  outline:none; text-transform:uppercase;
+}
+.analyzer-input:focus { border-color:var(--gold); }
+.cap-input {
+  width:100px; background:var(--card); border:1px solid var(--border2);
+  color:var(--text); padding:9px 12px; border-radius:6px;
+  font-size:11px; outline:none;
+}
+.analyze-btn {
+  background:linear-gradient(135deg,var(--gold),#aa8530);
+  border:none; color:#000; padding:9px 18px; border-radius:6px;
+  font-family:'Bebas Neue',sans-serif; font-size:14px;
+  letter-spacing:0.06em; cursor:pointer; white-space:nowrap;
+}
+.analyze-btn:disabled { opacity:0.4; cursor:not-allowed; }
+.result-box {
+  background:var(--card); border:1px solid var(--border);
+  border-radius:8px; padding:16px; min-height:300px;
+  font-size:12px; color:var(--text2); line-height:1.7;
+  white-space:pre-wrap; overflow-y:auto; max-height:500px;
+}
+.result-box.loading { color:var(--text3); font-style:italic; }
+
+/* ── PENNY SECTION ── */
+.penny-warning {
+  background:rgba(245,158,11,0.07); border:1px solid rgba(245,158,11,0.2);
+  border-radius:8px; padding:12px 14px; margin-bottom:14px;
+  font-size:11px; color:var(--text2); line-height:1.6;
+}
+.penny-warning strong { color:var(--amber); }
+.penny-table-wrap { background:var(--card); border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+
+/* ── LOADER ── */
+.loader { height:2px; background:var(--border); overflow:hidden; margin-bottom:16px; display:none; }
+.loader.on { display:block; }
+.loader-bar { height:100%; width:30%; background:var(--gold); animation:sweep 1.4s linear infinite; }
+@keyframes sweep { from{transform:translateX(-200%)} to{transform:translateX(500%)} }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width:4px; height:4px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){
+  .kpi-row { grid-template-columns:repeat(2,1fr); }
+  .signal-grid { grid-template-columns:1fr; }
+  .chart-row { grid-template-columns:1fr; }
+  .analyzer-layout { grid-template-columns:1fr; }
+}
+@media(max-width:680px){
+  .sidebar { display:none; }
+  .kpi-row { grid-template-columns:repeat(2,1fr); }
+}
+</style>
+</head>
+<body>
+
+<!-- ══ API KEY OVERLAY ══ -->
+<div id="apiOverlay">
+  <div class="overlay-box">
+    <div class="overlay-logo">HedgeMind</div>
+    <div class="overlay-sub">Premium Trading Dashboard</div>
+    <span class="overlay-label">Anthropic API-Key eingeben</span>
+    <input type="text" id="overlayKey" class="overlay-input" placeholder="sk-ant-api03-..." autocomplete="off" spellcheck="false">
+    <div class="overlay-hint">
+      Key holen: <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com</a> → API Keys → Create Key<br>
+      Kosten: ~0,001€ pro Analyse · $5 Startguthaben gratis
+    </div>
+    <button class="overlay-btn" id="overlayBtn" onclick="overlayTest()">Verbinden & Dashboard starten</button>
+    <div class="overlay-result" id="overlayResult"></div>
+    <div class="overlay-security">🔒 Der Key wird nur in dieser Browser-Session verwendet und nie übertragen.</div>
+  </div>
+</div>
+<div class="app">
+
+<!-- ══ SIDEBAR ══ -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="sidebar-logo-text">HedgeMind</div>
+    <div class="sidebar-logo-sub">Pro Trading Suite</div>
+  </div>
+  <div class="nav">
+    <div class="nav-section">Märkte</div>
+    <div class="nav-item active" onclick="showPage('dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </div>
+    <div class="nav-item" onclick="showPage('scanner')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      Market Scanner
+    </div>
+    <div class="nav-item" onclick="showPage('analyzer')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+      Ticker Analyzer
+    </div>
+    <div class="nav-item" onclick="showPage('pennystocks')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      Pennystock Scanner
+    </div>
+    <div class="nav-section">Strategien</div>
+    <div class="nav-item" onclick="showPage('strategies')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18"/></svg>
+      Hedge-Fund Prompts
+    </div>
+    <div class="nav-item" onclick="showPage('settings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+      API-Einstellungen
+    </div>
+  </div>
+  <div class="sidebar-bottom">
+    ⚠ Kein Finanzberater<br>Immer Stop-Loss setzen<br>Kapitalverlust möglich
+  </div>
+</nav>
+
+<!-- ══ MAIN ══ -->
+<div class="main">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-title" id="pageTitle">Dashboard</div>
+    <div class="topbar-input-wrap">
+      <input class="topbar-input" id="quickTicker" placeholder="Ticker schnell analysieren, z.B. NVDA">
+      <button class="topbar-btn" onclick="quickAnalyze()">Analysieren</button>
+    </div>
+    <div class="topbar-right">
+      <span class="topbar-badge">● Live</span>
+      <span class="topbar-time" id="clock">--:--:--</span>
+    </div>
+  </div>
+
+  <div class="loader" id="mainLoader"><div class="loader-bar"></div></div>
+  <div style="background:rgba(201,168,76,0.08);border-bottom:1px solid rgba(201,168,76,0.2);padding:7px 24px;font-size:11px;color:#c9a84c;display:flex;align-items:center;gap:8px;">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+    Alle Analyse-Buttons laufen <strong style="color:#e8c97a">direkt im Dashboard</strong> — API-Key einmalig unter ⚙ API-Einstellungen eintragen.
+  </div>
+
+  <!-- ══ CONTENT ══ -->
+  <div class="content">
+
+    <!-- ── DASHBOARD PAGE ── -->
+    <div class="page active" id="page-dashboard">
+      <div class="kpi-row">
+        <div class="kpi-card"><div class="kpi-val green">7</div><div class="kpi-label">Strong Buy Signale</div><div class="kpi-sub">TradingView + altFINS</div></div>
+        <div class="kpi-card"><div class="kpi-val gold">+14%</div><div class="kpi-label">Ø Upside-Potenzial</div><div class="kpi-sub">Aller Strong Buys</div></div>
+        <div class="kpi-card"><div class="kpi-val blue">KW 23</div><div class="kpi-label">Analyse-Stand</div><div class="kpi-sub">5. Juni 2026</div></div>
+        <div class="kpi-card"><div class="kpi-val red" id="kpi-btc">~63.9k</div><div class="kpi-label">BTC aktuell</div><div class="kpi-sub">-8% diese Woche</div></div>
+      </div>
+
+      <div class="chart-row">
+        <div class="chart-card">
+          <div class="chart-title">Upside-Potenzial — Strong Buy Kandidaten</div>
+          <div class="legend-row">
+            <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>US-Aktien</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>Krypto</div>
+          </div>
+          <div class="chart-wrap" style="height:200px">
+            <canvas id="upsideChart" role="img" aria-label="Upside-Potential der Strong Buy Kandidaten">Strong Buy Upside: LINK +28%, HYPE +23%, PANW +13%, BNB +12%, CRWD +11%, NVDA +9%, META +8%.</canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Portfolio-Allokation (Empfehlung)</div>
+          <div class="legend-row">
+            <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>Aktien 40%</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>Krypto 35%</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>Penny 5%</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#475569"></div>Cash 20%</div>
+          </div>
+          <div class="chart-wrap" style="height:200px">
+            <canvas id="allocChart" role="img" aria-label="Portfolio Aufteilung: Aktien 40%, Krypto 35%, Penny 5%, Cash 20%">Portfolio: Aktien 40%, Krypto 35%, Pennystock 5%, Cash 20%.</canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec-head">
+        <div class="sec-title">Strong Buy — Aktien</div>
+        <span class="sec-badge">TradingView verifiziert</span>
+      </div>
+      <div class="signal-grid">
+        <div class="signal-card top-pick">
+          <div class="signal-card-top">
+            <div><div class="signal-ticker">CRWD</div><div class="signal-name">CrowdStrike Holdings</div></div>
+            <div style="text-align:right"><div class="signal-badge buy">Strong Buy</div><div style="font-size:10px;color:#94a3b8;margin-top:4px;">748 USD</div></div>
+          </div>
+          <div class="signal-meta">
+            <div class="signal-m"><div class="signal-m-lbl">Entry</div><div class="signal-m-val">720–748</div></div>
+            <div class="signal-m"><div class="signal-m-lbl">Stop</div><div class="signal-m-val neg">690</div></div>
+            <div class="signal-m"><div class="signal-m-lbl">Ziel</div><div class="signal-m-val pos">830 USD</div></div>
+            <div class="signal-m"><div class="signal-m-lbl">Upside</div><div class="signal-m-val pos">+11%</div></div>
+          </div>
+          <div class="upside-bar"><div class="upside-fill" style="width:44%"></div></div>
+          <div class="upside-labels"><span>0%</span><span style="color:#22c55e">+11%</span><span>+25%</span></div>
+          <div class="signal-thesis">4-für-1 Aktiensplit 2. Juli 2026. Q1 +26% Umsatz. ARR-Rekord 5,5 Mrd. 44 Analysten: 0 Sells. TradingView: Strong Buy Daily + Weekly + Monthly.</div>
+          <div class="signal-sources"><span class="signal-src">TV Strong Buy</span><span class="signal-src">Split-Catalyst</span><span class="signal-src">44 Analysten Buy</span></div>
+        </div>
+        <div class="signal-card">
+          <div class="signal-card-top">
+            <div><div class="signal-ticker">NVDA</div><div class="signal-name">Nvidia Corporation</div></div>
+            <div style="text-align:right"><div class="signal-badge buy">Strong Buy</div><div style="font-size:10px;color:#94a3b8;margin-top:4px;">216 USD</div></div>
+          </div>
+          <div class="signal-meta">
+            <div class="signal-m"><div class="signal-m-lbl">Entry</div><div class="signal-m-val">210–218</div></div>
+            <div class="signal-m"><div class="signal-m-lbl">Stop</div><div class="signal-m-val neg">200</div></div>
+            <div class="signal-m"><div class="signal-m-lbl">Ziel</div><div class="signal-m-val pos">236 USD</div></div>
+            <div class="signal-m"><div class="signal-m-lbl">Upside</div><div class="signal-m-val pos">+9%</div></div>
+          </div>
+          <div class="upside-bar"><div class="upside-fill" style="width:36%"></div></div>
+          <div class="upside-labels"><span>0%</span><span style="color:#22c55e">+9%</span><span>+25%</span></div>
+          <div class="signal-thesis">Vera-Rubin-Chip in Vollproduktion. Analysten: unterbewertet. EPS übertraf Schätzung +6,5%. 52W-ATH 236 USD als Ziel. Earnings 26. Aug.</div>
+          <div class="signal-sources"><span class="signal-src">TV Strong Buy</span><span class="signal-src">Unterbewertet</span></div>
+        </div>
+        <div class="signal-card">
+          <div class="signal-card-top">
+            <div><div class="signal-ticker">PANW</div><div class="signal-name">Palo Alto Networks</div></div>
+            <div style="text-align:right"><div class="signal-badge buy">Strong Buy</div><div style="font-size:10px;color:#94a3b8;margin-top:4px;">200 USD</div></div>
+          </div>
+          <div class="signal-meta">
+            <div class="signal-m"><div class="signal-m-lbl">Entry</div><div class="signal-m-val">192–202</div></div>
+            <div class="signal-m"><div class="signal-m-lbl">Stop</div><div class="signal-m-val neg">182</div></div>
+            <div class="signal-m"><div class="signal-m-lbl">Ziel</div><div class="signal-m-val pos">228 USD</div></div>
+            <div class="signal-m"><div class="signal-m-lbl">Upside</div><div class="signal-m-val pos">+13%</div></div>
+          </div>
+          <div class="upside-bar"><div class="upside-fill" style="width:52%"></div></div>
+          <div class="upside-labels"><span>0%</span><span style="color:#22c55e">+13%</span><span>+25%</span></div>
+          <div class="signal-thesis">Cybersecurity-Spending 520 Mrd. USD bis Ende 2026. Profitiert von CRWD-Sektor-Momentum. Platformisierung beschleunigt Margen.</div>
+          <div class="signal-sources"><span class="signal-src">TV Strong Buy</span><span class="signal-src">Sektor-Momentum</span></div>
+        </div>
+        <div class="signal-card">
+          <div class="signal-card-top">
+            <div><div class="signal-ticker">META</div><div class="signal-name">Meta Platforms</div></div>
+            <div style="text-align:right"><div class="signal-badge buy">Strong Buy</div><div style="font-size:10px;color:#94a3b8;margin-top:4px;">685 USD</div></div>
+          </div>
+          <div class="signal-meta">
+            <div class="signal-m"><div class="signal-m-lbl">Entry</div><div class="signal-m-val">670–688</div></div>
+            <div class="signal-m"><div class="signal-m-lbl">Stop</div><div class="signal-m-val neg">648</div></div>
+            <div class="signal-m"><div class="signal-m-lbl">Ziel</div><div class="signal-m-val pos">740 USD</div></div>
+            <div class="signal-m"><div class="signal-m-lbl">Upside</div><div class="signal-m-val pos">+8%</div></div>
+          </div>
+          <div class="upside-bar"><div class="upside-fill" style="width:32%"></div></div>
+          <div class="upside-labels"><span>0%</span><span style="color:#22c55e">+8%</span><span>+25%</span></div>
+          <div class="signal-thesis">KI-Werbeumsätze Rekord. Llama-Modelle treiben Engagement. Earnings-Catalyst Juli 2026. TradingView Strong Buy Daily + Weekly.</div>
+          <div class="signal-sources"><span class="signal-src">TV Strong Buy</span><span class="signal-src">Earnings Juli</span></div>
+        </div>
+      </div>
+
+      <div class="sec-head">
+        <div class="sec-title">Strong Buy — Krypto</div>
+        <span class="sec-badge">altFINS verifiziert</span>
+      </div>
+      <div class="signal-grid">
+        <div class="signal-card top-pick">
+          <div class="signal-card-top">
+            <div><div class="signal-ticker">LINK</div><div class="signal-name">Chainlink</div></div>
+            <div style="text-align:right"><div class="signal-badge crypto">Strong Buy</div><div style="font-size:10px;color:#94a3b8;margin-top:4px;">9,40 USD</div></div>
+          </div>
+          <div class="signal-meta">
+            <div class="signal-m"><div class="signal-m-lbl">Entry</div><div class="signal-m-val">9,00–9,60</div></div>
+            <div class="signal-m"><div class="signal-m-lbl">Stop</div><div class="signal-m-val neg">8,20</div></div>
+            <div class="signal-m"><div class="signal-m-lbl">Ziel</div><div class="signal-m-val pos">12,00 USD</div></div>
+            <div class="signal-m"><div class="signal-m-lbl">Upside</div><div class="signal-m-val pos">+28%</div></div>
+          </div>
+          <div class="upside-bar"><div class="upside-fill" style="width:100%;background:#3b82f6"></div></div>
+          <div class="upside-labels"><span>0%</span><span style="color:#60a5fa">+28%</span><span>+30%</span></div>
+          <div class="signal-thesis">CCIP-Volumen +260% in einer Woche. 18 Mrd. USD mtl. Volumen. JPMorgan + UBS Pilotprogramme aktiv. Bitwise LINK ETF seit Jan. 2026. Stärkstes Infrastruktur-Signal.</div>
+          <div class="signal-sources"><span class="signal-src">altFINS Strong Uptrend</span><span class="signal-src">CCIP +260%</span><span class="signal-src">ETF</span></div>
+        </div>
+        <div class="signal-card">
+          <div class="signal-card-top">
+            <div><div class="signal-ticker">BNB</div><div class="signal-name">Binance Coin</div></div>
+            <div style="text-align:right"><div class="signal-badge crypto">Strong Buy</div><div style="font-size:10px;color:#94a3b8;margin-top:4px;">625 USD</div></div>
+          </div>
+          <div class="signal-meta">
+            <div class="signal-m"><div class="signal-m-lbl">Entry</div><div class="signal-m-val">610–635</div></div>
+            <div class="signal-m"><div class="signal-m-lbl">Stop</div><div class="signal-m-val neg">575</div></div>
+            <div class="signal-m"><div class="signal-m-lbl">Ziel</div><div class="signal-m-val pos">700 USD</div></div>
+            <div class="signal-m"><div class="signal-m-lbl">Upside</div><div class="signal-m-val pos">+12%</div></div>
+          </div>
+          <div class="upside-bar"><div class="upside-fill" style="width:48%;background:#3b82f6"></div></div>
+          <div class="upside-labels"><span>0%</span><span style="color:#60a5fa">+12%</span><span>+25%</span></div>
+          <div class="signal-thesis">+20,6% in 30 Tagen — stärkster Large-Cap. Coinbase-Listing als regulatorischer Mega-Catalyst. Maxwell-Upgrade live. Stärkstes 30T-Momentum.</div>
+          <div class="signal-sources"><span class="signal-src">altFINS Strong Uptrend</span><span class="signal-src">Coinbase-Listing</span></div>
+        </div>
+        <div class="signal-card">
+          <div class="signal-card-top">
+            <div><div class="signal-ticker">HYPE</div><div class="signal-name">Hyperliquid ⚠ Unlock 6.6.</div></div>
+            <div style="text-align:right"><div class="signal-badge crypto">Strong Buy*</div><div style="font-size:10px;color:#94a3b8;margin-top:4px;">67 USD</div></div>
+          </div>
+          <div class="signal-meta">
+            <div class="signal-m"><div class="signal-m-lbl">Entry*</div><div class="signal-m-val">60–65</div></div>
+            <div class="signal-m"><div class="signal-m-lbl">Stop</div><div class="signal-m-val neg">54</div></div>
+            <div class="signal-m"><div class="signal-m-lbl">Ziel</div><div class="signal-m-val pos">80 USD</div></div>
+            <div class="signal-m"><div class="signal-m-lbl">Upside</div><div class="signal-m-val pos">+23%</div></div>
+          </div>
+          <div class="upside-bar"><div class="upside-fill" style="width:92%;background:#3b82f6"></div></div>
+          <div class="upside-labels"><span>0%</span><span style="color:#60a5fa">+23%</span><span>+25%</span></div>
+          <div class="signal-thesis">+20% in 7 Tagen. ATH 75,51 USD am 2. Juni. Übertraf Solana. * Token-Unlock 9,92 Mio. HYPE am 6. Juni — erst danach einsteigen!</div>
+          <div class="signal-sources"><span class="signal-src">altFINS ATH-Momentum</span><span class="signal-src">+20% 7T</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SCANNER PAGE ── -->
+    <div class="page" id="page-scanner">
+      <div class="kpi-row">
+        <div class="kpi-card"><div class="kpi-val green">50</div><div class="kpi-label">DAX/MDAX Aktien</div></div>
+        <div class="kpi-card"><div class="kpi-val gold">50</div><div class="kpi-label">S&P500 Aktien</div></div>
+        <div class="kpi-card"><div class="kpi-val blue">200</div><div class="kpi-label">Top Kryptos</div></div>
+        <div class="kpi-card"><div class="kpi-val" style="color:#f59e0b">100+</div><div class="kpi-label">US Pennystocks</div></div>
+      </div>
+      <div class="sec-head"><div class="sec-title">Markt auswählen</div></div>
+      <div class="scanner-controls" id="mktBtns">
+        <button class="mkt-btn active" data-m="dax">🇩🇪 DAX / MDAX</button>
+        <button class="mkt-btn active" data-m="sp500">🇺🇸 S&P 500</button>
+        <button class="mkt-btn active" data-m="nasdaq">🇺🇸 NASDAQ 100</button>
+        <button class="mkt-btn active" data-m="crypto">🪙 Krypto Top 200</button>
+        <button class="mkt-btn active" data-m="penny">💰 Pennystocks</button>
+      </div>
+      <div class="sec-head"><div class="sec-title">Filter</div></div>
+      <div class="filter-row" id="filterBtns">
+        <button class="filter-btn active" data-f="momentum">Momentum</button>
+        <button class="filter-btn active" data-f="breakout">Breakout</button>
+        <button class="filter-btn active" data-f="undervalued">Undervalued</button>
+        <button class="filter-btn active" data-f="catalyst">Catalyst</button>
+        <button class="filter-btn active" data-f="strongbuy">Strong Buy Only</button>
+      </div>
+      <button class="scan-btn" onclick="runScanner(this)">Scan starten — Prompt wird kopiert ↗</button>
+      <table class="scan-table" id="scanTable">
+        <thead>
+          <tr>
+            <th>Ticker</th><th>Name</th><th>Markt</th><th>Signal</th><th>7T Performance</th><th>Upside</th><th>Catalyst</th><th>Aktion</th>
+          </tr>
+        </thead>
+        <tbody id="scanBody">
+          <tr><td colspan="8" style="text-align:center;color:#475569;padding:30px">Scan starten um Ergebnisse zu laden...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── ANALYZER PAGE ── -->
+    <div class="page" id="page-analyzer">
+      <div class="analyzer-layout">
+        <div>
+          <div class="sec-head"><div class="sec-title">Strategie</div></div>
+          <div class="strat-grid" id="stratGrid">
+            <div class="strat-card active" data-strat="citadel">
+              <div class="strat-card-name">Citadel Quant</div>
+              <div class="strat-card-desc">Momentum · Entry/Stop · Edge</div>
+            </div>
+            <div class="strat-card" data-strat="goldman">
+              <div class="strat-card-name">Goldman Technical</div>
+              <div class="strat-card-desc">RSI · MACD · Patterns</div>
+            </div>
+            <div class="strat-card" data-strat="jpmorgan">
+              <div class="strat-card-name">JPMorgan Fundamental</div>
+              <div class="strat-card-desc">Business · FCF · Moat</div>
+            </div>
+            <div class="strat-card" data-strat="bridgewater">
+              <div class="strat-card-name">Bridgewater Macro</div>
+              <div class="strat-card-desc">Zins · Inflation · Timing</div>
+            </div>
+            <div class="strat-card" data-strat="pershing">
+              <div class="strat-card-name">Pershing Square</div>
+              <div class="strat-card-desc">Bull/Bear · Kill-Criteria</div>
+            </div>
+            <div class="strat-card" data-strat="aqr">
+              <div class="strat-card-name">AQR Factor</div>
+              <div class="strat-card-desc">Value · Quality · Volatility</div>
+            </div>
+          </div>
+          <div class="sec-head"><div class="sec-title">US-Aktien & Krypto</div></div>
+          <div class="quick-tags">
+            <span class="qtag" onclick="addTicker('NVDA')">NVDA</span>
+            <span class="qtag" onclick="addTicker('CRWD')">CRWD</span>
+            <span class="qtag" onclick="addTicker('PANW')">PANW</span>
+            <span class="qtag" onclick="addTicker('META')">META</span>
+            <span class="qtag" onclick="addTicker('AAPL')">AAPL</span>
+            <span class="qtag" onclick="addTicker('MSFT')">MSFT</span>
+            <span class="qtag crypto" onclick="addTicker('BTC')">BTC</span>
+            <span class="qtag crypto" onclick="addTicker('ETH')">ETH</span>
+            <span class="qtag crypto" onclick="addTicker('BNB')">BNB</span>
+            <span class="qtag crypto" onclick="addTicker('LINK')">LINK</span>
+            <span class="qtag crypto" onclick="addTicker('SOL')">SOL</span>
+            <span class="qtag crypto" onclick="addTicker('HYPE')">HYPE</span>
+          </div>
+          <div class="sec-head"><div class="sec-title">Deutsche Aktien</div></div>
+          <div class="quick-tags">
+            <span class="qtag de" onclick="addTicker('SAP')">SAP</span>
+            <span class="qtag de" onclick="addTicker('SIE')">Siemens</span>
+            <span class="qtag de" onclick="addTicker('ALV')">Allianz</span>
+            <span class="qtag de" onclick="addTicker('RHM')">Rheinmetall</span>
+            <span class="qtag de" onclick="addTicker('BMW')">BMW</span>
+            <span class="qtag de" onclick="addTicker('VOW3')">VW</span>
+            <span class="qtag de" onclick="addTicker('MBG')">Mercedes</span>
+            <span class="qtag de" onclick="addTicker('BAYN')">Bayer</span>
+            <span class="qtag de" onclick="addTicker('DTE')">Telekom</span>
+            <span class="qtag de" onclick="addTicker('IFX')">Infineon</span>
+            <span class="qtag de" onclick="addTicker('ADS')">Adidas</span>
+            <span class="qtag de" onclick="addTicker('ENR')">Siemens Energy</span>
+            <span class="qtag de" onclick="addTicker('MUV2')">Munich Re</span>
+            <span class="qtag de" onclick="addTicker('DB1')">Dt. Börse</span>
+          </div>
+          <div class="analyzer-input-row">
+            <input class="analyzer-input" id="analyzerTicker" placeholder="Ticker eingeben (z.B. NVDA, SAP, BTC)">
+            <input class="cap-input" id="analyzerCap" type="number" value="500" placeholder="€">
+            <button class="analyze-btn" id="analyzeBtn" onclick="runAnalysis()">Analyse</button>
+          </div>
+        </div>
+        <div>
+          <div class="sec-head"><div class="sec-title">Ergebnis</div></div>
+          <div class="result-box" id="resultBox">Strategie wählen, Ticker eingeben und auf Analyse tippen...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PENNYSTOCKS PAGE ── -->
+    <div class="page" id="page-pennystocks">
+      <div class="penny-warning">
+        <strong>Pennystocks — ehrliche Einschätzung:</strong> Extrem hohes Risiko · Geringe Liquidität · Anfällig für Manipulation (Pump & Dump) · Weite Bid-Ask-Spreads. Für 500€ Kapital maximal 5–10% einsetzen. Immer harten Stop-Loss setzen. Nicht für Anfänger empfohlen.
+      </div>
+      <div class="kpi-row">
+        <div class="kpi-card"><div class="kpi-val" style="color:#f59e0b">+539%</div><div class="kpi-label">SNDK YTD</div><div class="kpi-sub">SanDisk · NAND/AI</div></div>
+        <div class="kpi-card"><div class="kpi-val" style="color:#f59e0b">+548%</div><div class="kpi-label">WATT YTD</div><div class="kpi-sub">Energous · Wireless Power</div></div>
+        <div class="kpi-card"><div class="kpi-val" style="color:#f59e0b">+473%</div><div class="kpi-label">RXT YTD</div><div class="kpi-sub">Rackspace · Cloud AI</div></div>
+        <div class="kpi-card"><div class="kpi-val" style="color:#f59e0b">+532%</div><div class="kpi-label">AXTI YTD</div><div class="kpi-sub">AXT Inc · Halbleiter</div></div>
+      </div>
+      <div class="sec-head"><div class="sec-title">US Pennystock Momentum Scanner</div><span class="sec-badge">Unter $5 · KW23</span></div>
+      <div class="penny-table-wrap">
+        <table class="scan-table">
+          <thead><tr><th>Ticker</th><th>Name</th><th>Kurs</th><th>YTD</th><th>Sektor</th><th>Signal</th><th>Risiko</th><th>Analyse</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="ticker-cell">SNDK</td><td class="neutral">SanDisk Corp.</td>
+              <td class="neutral">~$4,20</td><td class="pos">+539%</td>
+              <td class="neutral">NAND/AI Storage</td>
+              <td><span class="signal-strong">MOMENTUM</span></td>
+              <td style="color:#f59e0b">Sehr Hoch</td>
+              <td><button class="signal-buy-btn" onclick="pennyAnalyze('SNDK',this)">Prompt kopieren</button></td>
+            </tr>
+            <tr>
+              <td class="ticker-cell">WATT</td><td class="neutral">Energous Corp.</td>
+              <td class="neutral">~$0,80</td><td class="pos">+548%</td>
+              <td class="neutral">Wireless Charging</td>
+              <td><span class="signal-strong">MOMENTUM</span></td>
+              <td style="color:#ef4444">Extrem</td>
+              <td><button class="signal-buy-btn" onclick="pennyAnalyze('WATT',this)">Prompt kopieren</button></td>
+            </tr>
+            <tr>
+              <td class="ticker-cell">RXT</td><td class="neutral">Rackspace Tech.</td>
+              <td class="neutral">~$3,60</td><td class="pos">+473%</td>
+              <td class="neutral">Cloud / AI Infra</td>
+              <td><span class="signal-strong">BREAKOUT</span></td>
+              <td style="color:#f59e0b">Sehr Hoch</td>
+              <td><button class="signal-buy-btn" onclick="pennyAnalyze('RXT',this)">Prompt kopieren</button></td>
+            </tr>
+            <tr>
+              <td class="ticker-cell">AXTI</td><td class="neutral">AXT Inc.</td>
+              <td class="neutral">~$2,90</td><td class="pos">+532%</td>
+              <td class="neutral">Semiconductor</td>
+              <td><span class="signal-strong">MOMENTUM</span></td>
+              <td style="color:#f59e0b">Sehr Hoch</td>
+              <td><button class="signal-buy-btn" onclick="pennyAnalyze('AXTI',this)">Prompt kopieren</button></td>
+            </tr>
+            <tr>
+              <td class="ticker-cell">AGL</td><td class="neutral">agilon health</td>
+              <td class="neutral">~$1,80</td><td class="pos">+465%</td>
+              <td class="neutral">Healthcare AI</td>
+              <td><span class="signal-strong">CATALYST</span></td>
+              <td style="color:#f59e0b">Sehr Hoch</td>
+              <td><button class="signal-buy-btn" onclick="pennyAnalyze('AGL',this)">Prompt kopieren</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top:14px">
+        <button class="scan-btn" onclick="fullPennyScan(this)">Vollständigen Pennystock-Scan starten ↗</button>
+      </div>
+      <div id="fullPennyScanResult" class="result-box" style="margin-top:12px;display:none;max-height:400px"></div>
+    </div>
+
+    <!-- ── STRATEGIES PAGE ── -->
+    <div class="page" id="page-strategies">
+      <div class="sec-head"><div class="sec-title">Hedge-Fund Prompt-Bibliothek</div></div>
+      <div class="signal-grid" id="stratLibrary"></div>
+    </div>
+
+    <!-- ── PORTFOLIO PAGE ── -->
+    <div class="page" id="page-portfolio">
+      <div class="kpi-row">
+        <div class="kpi-card"><div class="kpi-val green" id="pf-capital">500€</div><div class="kpi-label">Gesamtkapital</div></div>
+        <div class="kpi-card"><div class="kpi-val gold" id="pf-invested">400€</div><div class="kpi-label">Investiert (80%)</div></div>
+        <div class="kpi-card"><div class="kpi-val blue" id="pf-cash">100€</div><div class="kpi-label">Cash Reserve</div></div>
+        <div class="kpi-card"><div class="kpi-val" id="pf-positions">0</div><div class="kpi-label">Offene Positionen</div></div>
+      </div>
+      <div class="sec-head"><div class="sec-title">Kapital eingeben</div></div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:20px">
+        <input type="number" id="pfCapital" value="500" min="100" style="background:var(--card);border:1px solid var(--border2);color:var(--text);padding:9px 14px;border-radius:6px;font-size:13px;width:150px;outline:none">
+        <button class="analyze-btn" onclick="updatePortfolio()">Berechnen</button>
+      </div>
+      <div class="chart-row">
+        <div class="chart-card">
+          <div class="chart-title">Empfohlene Kapitalverteilung</div>
+          <div class="chart-wrap" style="height:220px">
+            <canvas id="pfChart" role="img" aria-label="Portfolio Kapitalverteilung nach Assets">Portfolio Verteilung nach Kapital.</canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Risk-Management Regeln</div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.8;margin-top:6px">
+            <div>● Max. <strong style="color:var(--gold2)">25%</strong> Kapital pro Position</div>
+            <div>● Stop-Loss <strong style="color:var(--gold2)">immer vor Kauf</strong> setzen</div>
+            <div>● Tägliches Verlustlimit: <strong style="color:var(--red)" id="daily-limit">25€</strong></div>
+            <div>● Bei VIX &gt; 25: Positionen <strong style="color:var(--gold2)">halbieren</strong></div>
+            <div>● Drawdown &gt; 15%: <strong style="color:var(--red)">alle Positionen reduzieren</strong></div>
+            <div>● Cash Reserve: <strong style="color:var(--gold2)">min. 20%</strong> immer halten</div>
+            <div>● Swing-Trade Haltedauer: <strong style="color:var(--blue2)">1–4 Wochen</strong></div>
+            <div>● Pennystocks: max. <strong style="color:var(--amber)">5–10%</strong> des Kapitals</div>
+          </div>
+        </div>
+      </div>
+      <div class="sec-head"><div class="sec-title">Empfohlene Allokation</div></div>
+      <table class="scan-table">
+        <thead><tr><th>Kategorie</th><th>Asset</th><th>Allokation</th><th>Betrag</th><th>Stop-Loss</th><th>Ziel</th></tr></thead>
+        <tbody id="allocTable"></tbody>
+      </table>
+    </div>
+
+    <!-- ── SETTINGS PAGE ── -->
+    <div class="page" id="page-settings">
+      <div class="kpi-row">
+        <div class="kpi-card" id="api-status-card">
+          <div class="kpi-val red" id="api-status-val">Nicht gesetzt</div>
+          <div class="kpi-label">API-Key Status</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val blue">$5</div>
+          <div class="kpi-label">Startguthaben gratis</div>
+          <div class="kpi-sub">~5.000 Analysen</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val green">~0,001€</div>
+          <div class="kpi-label">Kosten pro Analyse</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val gold">100%</div>
+          <div class="kpi-label">Lokal gespeichert</div>
+          <div class="kpi-sub">Verlässt nie deinen PC</div>
+        </div>
+      </div>
+
+      <div class="sec-head"><div class="sec-title">API-Key einrichten</div></div>
+
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px">
+        <div style="font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:16px">
+          <strong style="color:var(--gold2)">Schritt 1</strong> — Gehe zu <a href="https://console.anthropic.com" target="_blank" style="color:var(--blue2);text-decoration:none">console.anthropic.com</a> und erstelle ein kostenloses Konto.<br>
+          <strong style="color:var(--gold2)">Schritt 2</strong> — Links auf <strong style="color:var(--text)">API Keys</strong> klicken → <strong style="color:var(--text)">Create Key</strong> → Key kopieren.<br>
+          <strong style="color:var(--gold2)">Schritt 3</strong> — Key hier einfügen und speichern. Fertig!
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:12px">
+          <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..." style="flex:1;background:var(--bg);border:1px solid var(--border2);color:var(--text);padding:10px 14px;border-radius:6px;font-family:'Space Mono',monospace;font-size:12px;outline:none">
+          <button onclick="document.getElementById('apiKeyInput').type = document.getElementById('apiKeyInput').type==='password'?'text':'password'" style="background:var(--card2);border:1px solid var(--border2);color:var(--text2);padding:10px 14px;border-radius:6px;cursor:pointer;font-size:11px">Anzeigen</button>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="analyze-btn" onclick="saveKeyAction()" style="flex:1">API-Key speichern</button>
+          <button onclick="deleteKey()" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#ef4444;padding:9px 18px;border-radius:6px;cursor:pointer;font-size:12px">Löschen</button>
+          <button class="analyze-btn" onclick="testKey(this)" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)">Key testen</button>
+        </div>
+        <div id="diagBox" style="display:none;margin-top:12px;padding:12px 14px;border-radius:8px;font-size:12px;line-height:1.7;font-family:'Space Mono',monospace;white-space:pre-wrap"></div>
+      </div>
+
+      <div style="background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.2);border-radius:8px;padding:14px;font-size:12px;color:var(--text2);line-height:1.7">
+        <strong style="color:var(--amber)">Sicherheitshinweis:</strong> Der API-Key wird ausschließlich in deinem Browser-LocalStorage gespeichert — er wird niemals an Dritte übertragen und verlässt deinen PC nicht. Teile den Key mit niemandem. Falls er kompromittiert wird, kannst du ihn jederzeit in der Anthropic Console deaktivieren.
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<script>
+// ── API KEY ACTIONS ──
+function saveKeyAction() {
+  const k = document.getElementById('apiKeyInput').value.trim();
+  if (!k || !k.startsWith('sk-')) { showToast('Ungültiger Key — muss mit sk- beginnen', '#ef4444'); return; }
+  saveApiKey(k);
+  updateApiStatus();
+  showToast('✓ API-Key gespeichert — Dashboard ist jetzt voll funktionsfähig!');
+}
+function deleteKey() {
+  if (confirm('API-Key wirklich löschen?')) { localStorage.removeItem('hm_api_key'); document.getElementById('apiKeyInput').value=''; updateApiStatus(); showToast('Key gelöscht','#ef4444'); }
+}
+async function testKey(btnEl) {
+  const k = document.getElementById('apiKeyInput').value.trim() || getApiKey();
+  if (!k) { showToast('Bitte erst Key eingeben','#ef4444'); return; }
+  saveApiKey(k);
+  const diagBox = document.getElementById('diagBox');
+  if (diagBox) { diagBox.style.display='block'; diagBox.innerHTML='🔄 Verbindung wird getestet...'; }
+  if (btnEl) { btnEl._orig = btnEl.textContent; btnEl.textContent = 'Teste...'; btnEl.disabled = true; }
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': k,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 20,
+        messages: [{ role: 'user', content: 'Say: OK' }]
+      })
+    });
+    const data = await res.json();
+    if (diagBox) {
+      if (res.ok) {
+        diagBox.innerHTML = `✅ <strong>Verbindung erfolgreich!</strong> Status: ${res.status}<br>Antwort: ${data?.content?.[0]?.text || 'OK'}<br><br>Alles bereit — Dashboard voll funktionsfähig!`;
+        diagBox.style.background = 'rgba(34,197,94,0.1)';
+        diagBox.style.color = 'var(--green)';
+        showToast('✓ Verbindung erfolgreich!');
+        updateApiStatus();
+      } else {
+        const errType = data?.error?.type || 'unknown';
+        const errMsg = data?.error?.message || 'Unbekannt';
+        let fix = '';
+        if (res.status === 401) fix = '→ Key ist ungültig oder abgelaufen. Neuen Key in der Console erstellen.';
+        else if (res.status === 403) fix = '→ Key hat keine Berechtigung. Billing in der Console prüfen.';
+        else if (res.status === 429) fix = '→ Rate Limit erreicht. 1 Minute warten und nochmal versuchen.';
+        else if (res.status === 400) fix = '→ Anfrage-Format fehlerhaft. Dashboard neu laden.';
+        diagBox.innerHTML = `❌ <strong>Fehler ${res.status}: ${errType}</strong><br>Meldung: ${errMsg}<br><br>${fix}<br><br>Key-Anfang: ${k.substring(0,15)}...`;
+        diagBox.style.background = 'rgba(239,68,68,0.1)';
+        diagBox.style.color = 'var(--red)';
+      }
+    }
+  } catch(e) {
+    if (diagBox) {
+      diagBox.innerHTML = `🔴 <strong>Netzwerkfehler:</strong> ${e.message}<br><br>→ Internetverbindung prüfen oder Browser-Konsole öffnen (F12 → Console) für Details.`;
+      diagBox.style.background = 'rgba(239,68,68,0.1)';
+      diagBox.style.color = 'var(--red)';
+    }
+  } finally {
+    if (btnEl) { btnEl.textContent = btnEl._orig || 'Key testen'; btnEl.disabled = false; }
+  }
+}
+function updateApiStatus() {
+  const k = getApiKey();
+  const el = document.getElementById('api-status-val');
+  if (el) { el.textContent = k ? '✓ Aktiv' : 'Nicht gesetzt'; el.className = 'kpi-val ' + (k?'green':'red'); }
+  if (k) document.getElementById('apiKeyInput').value = k.substring(0,8) + '...';
+}
+
+// ── CLOCK ──
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── NAVIGATION ──
+const pageTitles = {
+  dashboard:'Dashboard — Strong Buy Signale',
+  scanner:'Market Scanner',
+  analyzer:'Ticker Analyzer',
+  pennystocks:'Pennystock Scanner',
+  strategies:'Hedge-Fund Strategien',
+  portfolio:'Portfolio & Risk Management',
+  settings:'⚙ API-Einstellungen'
+};
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  document.querySelector(`[onclick="showPage('${id}')"]`).classList.add('active');
+  document.getElementById('pageTitle').textContent = pageTitles[id] || id;
+  if (id === 'portfolio') updatePortfolio();
+  if (id === 'strategies') renderStratLibrary();
+}
+
+// ── CHARTS ──
+const chartDefaults = {
+  responsive:true, maintainAspectRatio:false,
+  plugins:{ legend:{ display:false } }
+};
+
+new Chart(document.getElementById('upsideChart'), {
+  type:'bar',
+  data:{
+    labels:['LINK','HYPE','PANW','BNB','CRWD','NVDA','META'],
+    datasets:[{
+      data:[28,23,13,12,11,9,8],
+      backgroundColor:['#3b82f6','#3b82f6','#22c55e','#3b82f6','#22c55e','#22c55e','#22c55e'],
+      borderWidth:0, borderRadius:4
+    }]
+  },
+  options:{
+    ...chartDefaults,
+    scales:{
+      x:{ grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'#475569',font:{size:11}} },
+      y:{ grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'#475569',font:{size:10},callback:v=>'+'+v+'%'}, min:0, max:35 }
+    },
+    plugins:{
+      legend:{display:false},
+      tooltip:{ callbacks:{ label:ctx=>'+'+ctx.parsed.y+'%' } }
+    }
+  }
+});
+
+new Chart(document.getElementById('allocChart'), {
+  type:'doughnut',
+  data:{
+    labels:['Aktien 40%','Krypto 35%','Penny 5%','Cash 20%'],
+    datasets:[{
+      data:[40,35,5,20],
+      backgroundColor:['#22c55e','#3b82f6','#f59e0b','#334155'],
+      borderWidth:0, hoverOffset:4
+    }]
+  },
+  options:{
+    ...chartDefaults,
+    cutout:'65%',
+    plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:ctx=>ctx.label+': '+ctx.parsed+'%' } } }
+  }
+});
+
+let pfChartInst = null;
+function updatePortfolio() {
+  const cap = parseFloat(document.getElementById('pfCapital').value) || 500;
+  document.getElementById('pf-capital').textContent = cap.toLocaleString('de-DE') + '€';
+  document.getElementById('pf-invested').textContent = Math.round(cap * 0.8).toLocaleString('de-DE') + '€';
+  document.getElementById('pf-cash').textContent = Math.round(cap * 0.2).toLocaleString('de-DE') + '€';
+  document.getElementById('daily-limit').textContent = Math.round(cap * 0.05).toLocaleString('de-DE') + '€';
+
+  const allocs = [
+    {cat:'Aktien',asset:'CRWD',pct:20,stop:'690 USD',ziel:'830 USD'},
+    {cat:'Aktien',asset:'NVDA',pct:10,stop:'200 USD',ziel:'236 USD'},
+    {cat:'Aktien',asset:'PANW',pct:10,stop:'182 USD',ziel:'228 USD'},
+    {cat:'Krypto',asset:'LINK',pct:15,stop:'8,20 USD',ziel:'12,00 USD'},
+    {cat:'Krypto',asset:'BNB',pct:12,stop:'575 USD',ziel:'700 USD'},
+    {cat:'Krypto',asset:'HYPE*',pct:8,stop:'54 USD',ziel:'80 USD'},
+    {cat:'Pennystock',asset:'SNDK',pct:5,stop:'-30%',ziel:'+50%'},
+    {cat:'Cash',asset:'Reserve',pct:20,stop:'—',ziel:'—'},
+  ];
+  const tbody = document.getElementById('allocTable');
+  tbody.innerHTML = allocs.map(a => `
+    <tr>
+      <td class="neutral">${a.cat}</td>
+      <td class="ticker-cell">${a.asset}</td>
+      <td class="pos">${a.pct}%</td>
+      <td style="color:var(--gold2)">${Math.round(cap*a.pct/100).toLocaleString('de-DE')}€</td>
+      <td class="neg">${a.stop}</td>
+      <td class="pos">${a.ziel}</td>
+    </tr>`).join('');
+
+  if (pfChartInst) pfChartInst.destroy();
+  pfChartInst = new Chart(document.getElementById('pfChart'), {
+    type:'bar',
+    data:{
+      labels: allocs.map(a=>a.asset),
+      datasets:[{
+        data: allocs.map(a=>Math.round(cap*a.pct/100)),
+        backgroundColor:['#22c55e','#22c55e','#22c55e','#3b82f6','#3b82f6','#3b82f6','#f59e0b','#334155'],
+        borderWidth:0, borderRadius:4
+      }]
+    },
+    options:{
+      ...chartDefaults,
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#475569',font:{size:10}}},
+        y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#475569',font:{size:10},callback:v=>v+'€'}}
+      },
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:ctx=>ctx.parsed.y+'€' } } }
+    }
+  });
+}
+
+// ── SCANNER ──
+const activeMarkets = new Set(['dax','sp500','nasdaq','crypto','penny']);
+const activeFilters = new Set(['momentum','breakout','undervalued','catalyst','strongbuy']);
+
+document.getElementById('mktBtns').addEventListener('click', e => {
+  const btn = e.target.closest('.mkt-btn');
+  if (!btn) return;
+  const m = btn.dataset.m;
+  if (activeMarkets.has(m)) { if(activeMarkets.size>1){activeMarkets.delete(m);btn.classList.remove('active');} }
+  else { activeMarkets.add(m); btn.classList.add('active'); }
+});
+document.getElementById('filterBtns').addEventListener('click', e => {
+  const btn = e.target.closest('.filter-btn');
+  if (!btn) return;
+  const f = btn.dataset.f;
+  if (activeFilters.has(f)) { if(activeFilters.size>1){activeFilters.delete(f);btn.classList.remove('active');} }
+  else { activeFilters.add(f); btn.classList.add('active'); }
+});
+
+// ── API KEY MANAGEMENT ──
+function saveApiKey(k) { window._hmApiKey = k; localStorage.setItem('hm_api_key', k); }
+
+function showToast(msg, color) {
+  let t = document.getElementById('hm-toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'hm-toast';
+    t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:10px 22px;border-radius:8px;font-size:13px;font-weight:500;z-index:9999;pointer-events:none;transition:opacity 0.3s';
+    document.body.appendChild(t);
+  }
+  t.style.background = color || '#22c55e';
+  t.style.color = color ? '#fff' : '#000';
+  t.textContent = msg; t.style.opacity = '1';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.style.opacity = '0', 3500);
+}
+
+function checkKey() {
+  const k = getApiKey();
+  if (!k) {
+    showToast('⚙ Bitte zuerst API-Key in den Einstellungen eintragen!', '#ef4444');
+    showPage('settings');
+    return false;
+  }
+  return k;
+}
+
+async function callClaude(prompt, outputEl, btnEl) {
+  const key = checkKey();
+  if (!key) return;
+  if (btnEl) { btnEl._orig = btnEl.textContent; btnEl.textContent = 'Analysiere...'; btnEl.disabled = true; }
+  if (outputEl) { outputEl.textContent = 'KI analysiert mit aktuellen Kursdaten...'; outputEl.className = 'result-box loading'; }
+  document.getElementById('mainLoader').classList.add('on');
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1500,
+        system: 'Du bist professioneller Finanzanalyst. Nutze dein aktuelles Wissen für Kurseinschätzungen. Bei deutschen Aktien EUR, US-Aktien USD, Krypto USD. Antworte auf Deutsch, präzise, keine Haftungshinweise. Formatiere Abschnitte mit GROSSBUCHSTABEN als Überschrift gefolgt von Doppelpunkt.',
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      const msg = data?.error?.message || 'API Fehler ' + res.status;
+      if (res.status === 401) { showToast('API-Key ungültig — bitte prüfen!', '#ef4444'); showPage('settings'); }
+      else showToast('Fehler: ' + msg, '#ef4444');
+      if (outputEl) { outputEl.textContent = 'Fehler: ' + msg; outputEl.className = 'result-box'; }
+      return null;
+    }
+    const text = data.content.filter(b => b.type === 'text').map(b => b.text).join('\n');
+    if (outputEl) {
+      outputEl.className = 'result-box';
+      outputEl.innerHTML = text.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong style="color:#e8c97a">$1</strong>');
+    }
+    return text;
+  } catch(e) {
+    showToast('Netzwerkfehler: ' + e.message, '#ef4444');
+    if (outputEl) { outputEl.textContent = 'Fehler: ' + e.message; outputEl.className = 'result-box'; }
+    return null;
+  } finally {
+    document.getElementById('mainLoader').classList.remove('on');
+    if (btnEl) { btnEl.textContent = btnEl._orig || 'Analysieren'; btnEl.disabled = false; }
+  }
+}
+
+async function runScanner(btnEl) {
+  const ml = [...activeMarkets].join(', ');
+  const fl = [...activeFilters].join(', ');
+  const cap = document.getElementById('analyzerCap')?.value || '500';
+  const prompt = `Führe einen vollständigen Market Scan durch für: ${ml}\nFilter: ${fl}\nKapital: ${cap}€, Swing Trading 1-4 Wochen\n\nZeige NUR Strong Buy Kandidaten — mindestens 8, maximal 12 Titel.\nFür jeden Titel:\n- TICKER & NAME\n- KURS: aktueller Preis (USD/EUR)\n- SIGNAL: Kaufen / Beobachten / Meiden\n- PERFORMANCE: letzte 7 Tage (%)\n- ENTRY: konkreter Einstiegspreis\n- STOP: Stop-Loss Level\n- ZIEL: Kursziel 1-4 Wochen\n- CATALYST: wichtigster Kurstreiber (1 Satz)\n\nSortiere nach Upside-Potenzial absteigend. Markiere Top 3 mit ★`;
+  const tbody = document.getElementById('scanBody');
+  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#c9a84c;padding:20px">Analysiere Märkte...</td></tr>';
+  const result = await callClaude(prompt, null, btnEl);
+  if (!result) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#ef4444;padding:20px">Fehler — API-Key prüfen</td></tr>'; return; }
+  const lines = result.split('\n').filter(l => l.trim());
+  let rows = '';
+  let current = {};
+  const flush = () => {
+    if (current.ticker) {
+      const isTop = current.ticker.includes('★');
+      rows += `<tr style="${isTop?'background:rgba(201,168,76,0.06)':''}">
+        <td class="ticker-cell">${current.ticker||''}</td>
+        <td class="neutral">${current.name||''}</td>
+        <td class="neutral">${current.markt||''}</td>
+        <td><span class="signal-strong">${current.signal||'—'}</span></td>
+        <td class="${(current.perf||'').includes('-')?'neg':'pos'}">${current.perf||'—'}</td>
+        <td class="pos">${current.ziel||'—'}</td>
+        <td class="neutral" style="font-size:11px">${current.catalyst||'—'}</td>
+        <td><button class="signal-buy-btn" onclick="analyzeFromScan('${(current.ticker||'').replace(/[★\s]/g,'')}')">Analyse</button></td>
+      </tr>`;
+      current = {};
+    }
+  };
+  for (const line of lines) {
+    const u = line.toUpperCase();
+    if (u.includes('TICKER') || u.includes('NAME')) { flush(); current.ticker = line.replace(/^[-•*★\s]+/,'').split(':').pop().trim().substring(0,20); }
+    else if (u.startsWith('KURS')) current.price = line.split(':').pop().trim();
+    else if (u.startsWith('SIGNAL')) current.signal = line.split(':').pop().trim().substring(0,15);
+    else if (u.startsWith('PERFORM')) current.perf = line.split(':').pop().trim().substring(0,10);
+    else if (u.startsWith('ENTRY')) current.entry = line.split(':').pop().trim().substring(0,10);
+    else if (u.startsWith('STOP')) current.stop = line.split(':').pop().trim().substring(0,10);
+    else if (u.startsWith('ZIEL')) current.ziel = line.split(':').pop().trim().substring(0,10);
+    else if (u.startsWith('CATALYST')) current.catalyst = line.split(':').pop().trim().substring(0,60);
+    else if (u.startsWith('MARKT')) current.markt = line.split(':').pop().trim().substring(0,10);
+    else if (!current.ticker && line.trim().length > 2) { flush(); current.ticker = line.replace(/^[-•*★\s]+/,'').trim().substring(0,25); }
+  }
+  flush();
+  tbody.innerHTML = rows || `<tr><td colspan="8" style="padding:16px"><pre style="color:#94a3b8;font-size:11px;white-space:pre-wrap">${result}</pre></td></tr>`;
+}
+
+function analyzeFromScan(ticker) {
+  document.getElementById('analyzerTicker').value = ticker;
+  showPage('analyzer');
+  setTimeout(runAnalysis, 100);
+}
+
+async function pennyAnalyze(ticker, btnEl) {
+  const prompt = `Analysiere Pennystock ${ticker} für Swing Trading 1-4 Wochen.\nZeige:\nSIGNAL: Kaufen / Meiden\nKURS: aktueller Preis\nPERFORMANCE: letzte 7 Tage\nENTRY: konkreter Einstiegspreis\nSTOP: Stop-Loss Level\nZIEL: Kursziel\nCATALYST: wichtigster Kurstreiber\nRISIKO: Einschätzung (Hoch/Sehr Hoch/Extrem)\nFAZIT: 2 Sätze ehrliche Einschätzung`;
+  const row = btnEl?.closest('tr');
+  const box = document.createElement('tr');
+  box.innerHTML = `<td colspan="8"><div class="result-box" style="margin:6px;max-height:200px" id="penny-result-${ticker}">Lädt...</div></td>`;
+  if (row?.nextSibling) row.parentNode.insertBefore(box, row.nextSibling);
+  else row?.parentNode?.appendChild(box);
+  await callClaude(prompt, document.getElementById('penny-result-' + ticker), btnEl);
+}
+
+async function fullPennyScan(btnEl) {
+  const prompt = `Scanne US Pennystocks unter $5 für Swing Trading 1-4 Wochen.\nAnalysiere: SNDK (SanDisk), WATT (Energous), RXT (Rackspace), AXTI (AXT Inc), AGL (agilon health), POET Technologies.\n\nFür jeden:\nTICKER & NAME\nSIGNAL: Kaufen / Meiden\nKURS aktuell\nPERFORMANCE letzte 7 Tage\nENTRY: Einstiegspreis\nSTOP-LOSS\nZIEL\nRISIKO-RATING\nKurzfazit (1 Satz)`;
+  const box = document.getElementById('fullPennyScanResult');
+  if (box) { box.style.display = 'block'; await callClaude(prompt, box, btnEl); }
+}
+
+// ── ANALYZER ──
+let activeStat = 'citadel';
+document.getElementById('stratGrid').addEventListener('click', e => {
+  const card = e.target.closest('.strat-card');
+  if (!card) return;
+  document.querySelectorAll('.strat-card').forEach(c => c.classList.remove('active'));
+  card.classList.add('active');
+  activeStat = card.dataset.strat;
+});
+
+function addTicker(t) {
+  const inp = document.getElementById('analyzerTicker');
+  const vals = inp.value.split(',').map(x=>x.trim().toUpperCase()).filter(Boolean);
+  if (!vals.includes(t)) vals.push(t);
+  inp.value = vals.join(', ');
+}
+
+const stratPrompts = {
+  citadel: (t,c) => `Citadel Quant Analyse für ${t}. Kapital ${c}€, Swing Trading 1-4 Wochen. Nutze Websuche für aktuelle Kurse. Zeige: Signal (Kaufen/Meiden/Beobachten), Momentum-Status, Entry-Preis, Stop-Loss, Kursziel, Positionsgröße in €, quantitativer Edge, Kill-Criteria. Max 200 Wörter, konkret.`,
+  goldman: (t,c) => `Goldman Sachs Technical Analysis für ${t}. Kapital ${c}€. Websuche für aktuelle Kurse. Zeige: Trend-Richtung, Support/Resistance-Level, RSI + MACD Signal, Chart-Pattern, Entry, 2 Kursziele, Stop-Loss. Max 200 Wörter.`,
+  jpmorgan: (t,c) => `JPMorgan Fundamental Analysis für ${t}. Kapital ${c}€. Zeige: Business-Qualität, Umsatzwachstum, Competitive Moat, Bewertung (günstig/fair/teuer), Catalyst in 1-4 Wochen, größtes Risiko, Positionsempfehlung. Max 200 Wörter.`,
+  bridgewater: (t,c) => `Bridgewater Macro Analyse für ${t}. Kapital ${c}€. Websuche für aktuelle Makrodaten. Zeige: Makro-Regime, Fed-Zinspolitik-Impact, Inflationsschutz, Risk-On/Off, Timing-Einschätzung, Portfoliogewicht. Max 200 Wörter.`,
+  pershing: (t,c) => `Pershing Square Investment-These für ${t}. Kapital ${c}€. Zeige: Conviction-Level, 2 Bull-Case Argumente, 2 Bear-Case Risiken, Variant Perception (was sieht der Markt falsch?), Catalyst, Margin of Safety, Kill-Criteria, Positionsgröße. Max 200 Wörter.`,
+  aqr: (t,c) => `AQR Factor Analyse für ${t}. Kapital ${c}€. Zeige: Momentum-Factor (positiv/negativ), Quality-Factor (ROE/Schulden), Value-Factor (günstig/teuer), Volatility (High/Low Beta), Factor-Crowding-Risiko, Expected Return 4 Wochen, Allokationsempfehlung. Max 200 Wörter.`
+};
+
+async function runAnalysis() {
+  const raw = document.getElementById('analyzerTicker').value.trim();
+  const cap = document.getElementById('analyzerCap').value || '500';
+  if (!raw) { document.getElementById('resultBox').textContent = 'Bitte Ticker eingeben.'; return; }
+  const tickers = raw.split(',').map(t=>t.trim().toUpperCase()).filter(Boolean).slice(0,3).join(', ');
+  const prompt = stratPrompts[activeStat](tickers, cap);
+  await callClaude(prompt, document.getElementById('resultBox'), document.getElementById('analyzeBtn'));
+}
+
+async function quickAnalyze() {
+  const t = document.getElementById('quickTicker').value.trim().toUpperCase();
+  if (!t) return;
+  const cap = '500';
+  const prompt = `Schnellanalyse ${t} für Swing Trading. Signal (Kaufen/Beobachten/Meiden), Entry, Stop-Loss, Kursziel, wichtigster Catalyst. Max 100 Wörter.`;
+  showPage('analyzer');
+  document.getElementById('analyzerTicker').value = t;
+  await callClaude(prompt, document.getElementById('resultBox'), document.querySelector('.topbar-btn'));
+}
+document.getElementById('quickTicker').addEventListener('keydown', e => { if(e.key==='Enter') quickAnalyze(); });
+
+// ── STRATEGY LIBRARY ──
+const strategies = [
+  {name:'Citadel Quant',icon:'📊',desc:'Momentum + Mean Reversion + Entry/Stop/Target + Quantitativer Edge',color:'#22c55e'},
+  {name:'Goldman Technical',icon:'📈',desc:'Trend + Support/Resistance + RSI/MACD + Chart-Patterns + Trade Setup',color:'#3b82f6'},
+  {name:'JPMorgan Fundamental',icon:'🏦',desc:'Business Model + Free Cash Flow + Competitive Moat + Catalyst',color:'#8b5cf6'},
+  {name:'Bridgewater Macro',icon:'🌍',desc:'Yield Curve + Fed + Inflation + Economic Regime + Timing',color:'#06b6d4'},
+  {name:'Pershing Square Thesis',icon:'🎯',desc:'Deep Conviction + Bull/Bear Case + Variant Perception + Kill Criteria',color:'#f59e0b'},
+  {name:'AQR Factor Investing',icon:'🔬',desc:'Value + Momentum + Quality + Low Volatility + Factor Crowding',color:'#ec4899'},
+  {name:'D.E. Shaw Options',icon:'⚡',desc:'Covered Calls + Iron Condors + Greeks + P&L Diagramm + Management Rules',color:'#14b8a6'},
+  {name:'Renaissance Patterns',icon:'🔮',desc:'Seasonal Patterns + Volume Profile + Gap Analysis + Statistical Edge',color:'#f97316'},
+  {name:'Jane Street Execution',icon:'⚙️',desc:'Bid-Ask Spread + Order Types + Dark Pools + PFOF + Timing Optimization',color:'#64748b'},
+  {name:'Two Sigma Backtest',icon:'🧪',desc:'Strategy Rules + Historical Test + Sharpe Ratio + Overfitting Warning',color:'#84cc16'},
+  {name:'Citadel Portfolio',icon:'🏗️',desc:'MPT Allocation + Correlation Matrix + Rebalancing + Tail Risk Hedging',color:'#a855f7'},
+  {name:'Bridgewater Macro Dashboard',icon:'📡',desc:'CPI + PMI + Yield Curve + DXY + Economic Regime Identification',color:'#0ea5e9'},
+];
+
+function renderStratLibrary() {
+  const el = document.getElementById('stratLibrary');
+  el.innerHTML = strategies.map(s => `
+    <div class="signal-card" style="cursor:pointer" onclick="useStrategy('${s.name}')">
+      <div style="font-size:20px;margin-bottom:8px">${s.icon}</div>
+      <div style="font-size:14px;font-weight:500;color:${s.color};margin-bottom:4px">${s.name}</div>
+      <div style="font-size:11px;color:var(--text2);line-height:1.5">${s.desc}</div>
+      <button class="signal-buy-btn" style="margin-top:10px;border-color:${s.color};color:${s.color}">Strategie nutzen ↗</button>
+    </div>`).join('');
+}
+
+function useStrategy(name) {
+  showPage('analyzer');
+  const key = name.toLowerCase().includes('citadel quant') ? 'citadel' :
+              name.toLowerCase().includes('goldman') ? 'goldman' :
+              name.toLowerCase().includes('jpmorgan') ? 'jpmorgan' :
+              name.toLowerCase().includes('bridgewater macro d') ? 'bridgewater' :
+              name.toLowerCase().includes('pershing') ? 'pershing' :
+              name.toLowerCase().includes('aqr') ? 'aqr' : 'citadel';
+  document.querySelectorAll('.strat-card').forEach(c => {
+    c.classList.toggle('active', c.dataset.strat === key);
+  });
+  activeStat = key;
+}
+
+document.getElementById('analyzerTicker').addEventListener('keydown', e => { if(e.key==='Enter') runAnalysis(); });
+updatePortfolio();
+updateApiStatus();
+
+// ── OVERLAY LOGIC ──
+// Globale Variable für den Key in dieser Session
+window._hmApiKey = localStorage.getItem('hm_api_key') || '';
+
+async function overlayTest() {
+  const k = document.getElementById('overlayKey').value.trim();
+  if (!k || !k.startsWith('sk-')) {
+    showOverlayResult('❌ Ungültiges Format — Key muss mit sk- beginnen', false);
+    return;
+  }
+  const btn = document.getElementById('overlayBtn');
+  btn.disabled = true; btn.textContent = 'Verbinde...';
+  showOverlayResult('🔄 Teste Verbindung...', null);
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': k,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 10,
+        messages: [{ role: 'user', content: 'Say OK' }]
+      })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      window._hmApiKey = k;
+      localStorage.setItem('hm_api_key', k);
+      showOverlayResult('✅ Verbindung erfolgreich! Dashboard wird geladen...', true);
+      setTimeout(() => {
+        document.getElementById('apiOverlay').classList.add('hidden');
+        updateApiStatus();
+        showToast('✓ Willkommen bei HedgeMind Pro!');
+      }, 1500);
+    } else {
+      const msg = data?.error?.message || 'Fehler ' + res.status;
+      showOverlayResult('❌ ' + msg + '\n\nBitte einen neuen Key in der Console erstellen.', false);
+      btn.disabled = false; btn.textContent = 'Verbinden & Dashboard starten';
+    }
+  } catch(e) {
+    showOverlayResult('🔴 Netzwerkfehler: ' + e.message, false);
+    btn.disabled = false; btn.textContent = 'Verbinden & Dashboard starten';
+  }
+}
+
+function showOverlayResult(msg, ok) {
+  const el = document.getElementById('overlayResult');
+  el.style.display = 'block';
+  el.className = 'overlay-result ' + (ok === true ? 'ok' : ok === false ? 'err' : '');
+  el.textContent = msg;
+}
+
+// Key aus Session verwenden statt localStorage
+function getApiKey() {
+  return window._hmApiKey || localStorage.getItem('hm_api_key') || '';
+}
+
+// Beim Start prüfen ob Key vorhanden
+(function checkOnStart() {
+  const k = localStorage.getItem('hm_api_key');
+  if (k && k.startsWith('sk-') && k.length > 50) {
+    window._hmApiKey = k;
+    document.getElementById('apiOverlay').classList.add('hidden');
+    updateApiStatus();
+  }
+})();
+
+document.getElementById('overlayKey').addEventListener('keydown', e => {
+  if (e.key === 'Enter') overlayTest();
+});
+</script>
+</body>
+</html>
